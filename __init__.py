@@ -16,6 +16,9 @@ bl_info['blender'] = getattr(bpy.app, "version")
 PLUGIN_VERSION = str(bl_info['version']).strip('() ').replace(',', '.')
 is_plugin_enabled = False
 
+##
+## Classes for doing stuff.
+##
 class PhotogrammetryMeshCloseHole(bpy.types.Operator):
     """Extrude and close hole"""
     bl_idname = "mesh.photogrammetry_fill_loop"
@@ -63,6 +66,33 @@ class PhotogrammetryRemoveNonConnected(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class PhotogrammetryEditXray(bpy.types.Operator):
+    """Switch to edit mode and switch on xray mode"""
+    bl_idname = "sculpt.photogrammetry_switch_to_edit_mode"
+    bl_label = "Edit Mode with Xray"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self,context):
+        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+        bpy.ops.view3d.toggle_xray()
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        return {'FINISHED'}
+
+class PhotogrammetrySculptNonXray(bpy.types.Operator):
+    """Switch to sculpt mode and toggle off xray mode"""
+    bl_idname = "mesh.photogrammetry_switch_to_sculpt_mode"
+    bl_label = "Sculpt Mode without Xray"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self,context):
+        bpy.ops.object.mode_set(mode='SCULPT', toggle=False)
+        bpy.ops.view3d.toggle_xray()
+        bpy.context.space_data.shading.type = 'SOLID'
+
+
+        return {'FINISHED'}
+
 class PhotogrammetryInit(bpy.types.Operator):
     """Move object to origin, merge mesh, remove duplicates and set clip start"""
     bl_idname = "object.photogrammetry_init"
@@ -73,21 +103,26 @@ class PhotogrammetryInit(bpy.types.Operator):
         bpy.context.space_data.clip_start = 0.0001
         bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='MEDIAN')
         bpy.context.object.active_material.use_backface_culling = False
-        bpy.ops.object.editmode_toggle()
+
+        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.remove_doubles()
         bpy.ops.mesh.select_all(action='DESELECT')
-        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         return {'FINISHED'}
 
-# menu containing all tools
+#
+# Classes for setting up the various menus
+#
 class VIEW3D_MT_edit_mesh_photogrammetry(bpy.types.Menu):
     bl_label = "Photogrammetry"
 
     def draw(self, context):
         layout = self.layout
-        for cls in [PhotogrammetryRemoveNonConnected,
+
+        for cls in [PhotogrammetrySculptNonXray,
+                    PhotogrammetryRemoveNonConnected,
                     PhotogrammetryMeshCloseHole]:
             layout.operator(cls.bl_idname, text=cls.bl_label)
 
@@ -100,12 +135,24 @@ class VIEW3D_MT_object_context_photogrammetry(bpy.types.Menu):
         for cls in [PhotogrammetryInit]:
             layout.operator(cls.bl_idname, text=cls.bl_label)
 
+class VIEW3D_MT_sculpt_context_photogrammetry(bpy.types.Menu):
+    bl_label = "Photogrammetry"
+
+    def draw(self, context):
+        layout = self.layout
+
+        for cls in [PhotogrammetryEditXray]:
+            layout.operator(cls.bl_idname, text=cls.bl_label)
+
 clz = [
     VIEW3D_MT_object_context_photogrammetry,
     VIEW3D_MT_edit_mesh_photogrammetry,
+    VIEW3D_MT_sculpt_context_photogrammetry,
+    PhotogrammetryEditXray,
     PhotogrammetryInit,
     PhotogrammetryRemoveNonConnected,
     PhotogrammetryMeshCloseHole,
+    PhotogrammetrySculptNonXray,
 ]
 
 addon_keymaps = []
@@ -116,11 +163,15 @@ def edit_menu_func(self, context):
 def object_menu_func(self, context):
     self.layout.menu("VIEW3D_MT_object_context_photogrammetry")
 
+def sculpt_menu_func(self, context):
+    self.layout.menu("VIEW3D_MT_sculpt_context_photogrammetry")
+
 def register():
     for cls in clz: bpy.utils.register_class(cls)
 
-    bpy.types.VIEW3D_MT_edit_mesh_context_menu.append(edit_menu_func)
-    bpy.types.VIEW3D_MT_object_context_menu.append(object_menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh.append(edit_menu_func)
+    bpy.types.VIEW3D_MT_object.append(object_menu_func)
+    bpy.types.VIEW3D_MT_sculpt.append(sculpt_menu_func)
 
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
@@ -140,8 +191,9 @@ def unregister():
 
     addon_keymaps.clear()
 
-    bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(edit_menu_func)
-    bpy.types.VIEW3D_MT_object_context_menu.remove(object_menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh.remove(edit_menu_func)
+    bpy.types.VIEW3D_MT_object.remove(object_menu_func)
+    bpy.types.VIEW3D_MT_sculpt.remove(sculpt_menu_func)
 
 # This allows you to run the script directly from Blender's Text editor
 # to test the add-on without having to install it.
