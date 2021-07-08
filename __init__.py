@@ -26,10 +26,11 @@ class PhotogrammetryMeshCloseHole(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     steps: bpy.props.IntProperty(name="Steps", default=2, min=1, max=100)
+    stpsze: bpy.props.FloatProperty(name="Step Size", default=0.5,
+                                  min=0.1, max=0.9)
 
     def execute(self,context):
-        factor = (0.9, 0.9, 0.9)
-        if self.steps > 2: factor = (0.5, 0.5, 0.5)
+        factor = (self.stpsze, self.stpsze, self.stpsze)
 
         for x in range(self.steps):
             bpy.ops.mesh.extrude_region(use_normal_flip=False,
@@ -178,10 +179,11 @@ def register():
     if kc:
         km = kc.keymaps.new(name='Mesh',space_type='EMPTY',region_type='WINDOW')
 
-        for let,stps in [('E',1),('D',2),('C',3)]:
+        for let,stps,stpsze in [('E',1,0.9),('D',2,0.9),('C',3,0.5)]:
             kmi = km.keymap_items.new(PhotogrammetryMeshCloseHole.bl_idname,
                                       let, 'PRESS', shift=True, oskey=True)
             kmi.properties.steps = stps
+            kmi.properties.stpsze = stpsze
             kmi.active = True
             addon_keymaps.append((km, kmi))
 
