@@ -20,6 +20,24 @@ PLUGIN_VERSION = str(bl_info['version']).strip('() ').replace(',', '.')
 is_plugin_enabled = False
 
 ##
+## Helper Class for doing common stuff
+##
+class PhotogrammetryHelper:
+
+    @classmethod
+    def init_model(cls):
+        bpy.context.space_data.clip_start = 0.0001
+        bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='MEDIAN')
+        bpy.context.object.active_material.use_backface_culling = False
+
+        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.remove_doubles()
+        bpy.ops.mesh.faces_shade_smooth()
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+
+##
 ## Classes for doing stuff.
 ##
 class PhotogrammetryMeshCloseHole(bpy.types.Operator):
@@ -103,16 +121,7 @@ class PhotogrammetryInit(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        bpy.context.space_data.clip_start = 0.0001
-        bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='MEDIAN')
-        bpy.context.object.active_material.use_backface_culling = False
-
-        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.remove_doubles()
-        bpy.ops.mesh.select_all(action='DESELECT')
-        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-
+        PhotogrammetryHelper.init_model()
         return {'FINISHED'}
 
 class PhotogrammetryImportModels(bpy.types.Operator,
@@ -122,6 +131,12 @@ class PhotogrammetryImportModels(bpy.types.Operator,
     bl_label = "Import Models"
 
     filepath = bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def _init_model(self,model_path):
+        obj = bpy.context.object
+        bpy.context.view_layer.objects.active = obj
+        obj.name = os.path.splitext(os.path.basename(model_path))[0]
+        PhotogrammetryHelper.init_model()
 
     def execute(self, context):
         models_path = os.path.dirname(self.filepath)
@@ -133,11 +148,12 @@ class PhotogrammetryImportModels(bpy.types.Operator,
                                      axis_forward='-Z',
                                      axis_up='Y',
                                      filter_glob="*.obj;*.mtl")
+            self._init_model(path)
 
         for model_path in glob.glob(models_path + "/*.glb"):
             path = os.path.join(models_path, model_path)
             bpy.ops.import_scene.gltf(filepath=path)
-
+            self._init_model(path)
 
 
         return {'FINISHED'}
