@@ -1,4 +1,7 @@
 import bpy
+import bpy_extras
+import os
+import glob
 
 bl_info = {
     'name': 'Photogrammetry Plugin',
@@ -91,7 +94,6 @@ class PhotogrammetrySculptNonXray(bpy.types.Operator):
         bpy.ops.view3d.toggle_xray()
         bpy.context.space_data.shading.type = 'SOLID'
 
-
         return {'FINISHED'}
 
 class PhotogrammetryInit(bpy.types.Operator):
@@ -113,6 +115,35 @@ class PhotogrammetryInit(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class PhotogrammetryImportModels(bpy.types.Operator,
+                                 bpy_extras.io_utils.ImportHelper):
+    '''Import all models files in a directroy'''
+    bl_idname = "object.photogrammetry_import_models"
+    bl_label = "Import Models"
+
+    filepath = bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        models_path = os.path.dirname(self.filepath)
+
+        for model_path in glob.glob(models_path + "/*.obj"):
+            path = os.path.join(models_path, model_path)
+
+            bpy.ops.import_scene.obj(filepath=path,
+                                     axis_forward='-Z',
+                                     axis_up='Y',
+                                     filter_glob="*.obj;*.mtl")
+
+        for model_path in glob.glob(models_path + "/*.glb"):
+            path = os.path.join(models_path, model_path)
+            bpy.ops.import_scene.gltf(filepath=path)
+
+
+
+        return {'FINISHED'}
+
+
+
 #
 # Classes for setting up the various menus
 #
@@ -133,7 +164,8 @@ class VIEW3D_MT_object_context_photogrammetry(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
 
-        for cls in [PhotogrammetryInit]:
+        for cls in [PhotogrammetryInit,
+                    PhotogrammetryImportModels]:
             layout.operator(cls.bl_idname, text=cls.bl_label)
 
 class VIEW3D_MT_sculpt_context_photogrammetry(bpy.types.Menu):
@@ -154,6 +186,7 @@ clz = [
     PhotogrammetryRemoveNonConnected,
     PhotogrammetryMeshCloseHole,
     PhotogrammetrySculptNonXray,
+    PhotogrammetryImportModels,
 ]
 
 addon_keymaps = []
@@ -187,6 +220,7 @@ def register():
             kmi.active = True
             addon_keymaps.append((km, kmi))
 
+
 def unregister():
     for km, kmi in addon_keymaps: km.keymap_items.remove(kmi)
     for cls in clz: bpy.utils.unregister_class(cls)
@@ -196,6 +230,7 @@ def unregister():
     bpy.types.VIEW3D_MT_edit_mesh.remove(edit_menu_func)
     bpy.types.VIEW3D_MT_object.remove(object_menu_func)
     bpy.types.VIEW3D_MT_sculpt.remove(sculpt_menu_func)
+
 
 # This allows you to run the script directly from Blender's Text editor
 # to test the add-on without having to install it.
