@@ -132,30 +132,33 @@ class PhotogrammetryImportModels(bpy.types.Operator,
 
     filepath = bpy.props.StringProperty(subtype="FILE_PATH")
 
-    def _init_model(self,model_path):
-        obj = bpy.context.object
+    def _init_model(self, obj, model_path):
+        print("Handling: {}".format(model_path))
+
+        obj = bpy.context.object or obj
         bpy.context.view_layer.objects.active = obj
         obj.name = os.path.splitext(os.path.basename(model_path))[0]
+
         PhotogrammetryHelper.init_model()
 
     def execute(self, context):
         models_path = os.path.dirname(self.filepath)
 
         for model_path in glob.glob(models_path + "/*.obj"):
-            path = os.path.join(models_path, model_path)
+            bpy.ops.import_scene.obj(filepath=model_path)
+            # importing wavefront files doesn't set the bpy.context.object
+            # value correctly, so we retrieve the object directly
+            obj = bpy.context.view_layer.objects[os.path.splitext(
+                os.path.basename(model_path)
+            )[0]]
 
-            bpy.ops.import_scene.obj(filepath=path,
-                                     axis_forward='-Z',
-                                     axis_up='Y',
-                                     filter_glob="*.obj;*.mtl")
-            self._init_model(path)
+            self._init_model(obj,model_path)
 
         for model_path in glob.glob(models_path + "/*.glb"):
-            path = os.path.join(models_path, model_path)
-            bpy.ops.import_scene.gltf(filepath=path)
-            self._init_model(path)
+            bpy.ops.import_scene.gltf(filepath=model_path)
+            self._init_model(None,model_path)
 
-
+        bpy.ops.file.pack_all()
         return {'FINISHED'}
 
 
