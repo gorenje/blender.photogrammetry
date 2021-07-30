@@ -132,36 +132,26 @@ class PhotogrammetryImportModels(bpy.types.Operator,
 
     filepath = bpy.props.StringProperty(subtype="FILE_PATH")
 
-    def _init_model(self, obj, model_path):
-        print("Handling: {}".format(model_path))
-
-        obj = bpy.context.object or obj
-        bpy.context.view_layer.objects.active = obj
-        obj.name = os.path.splitext(os.path.basename(model_path))[0]
-
-        PhotogrammetryHelper.init_model()
-
     def execute(self, context):
         models_path = os.path.dirname(self.filepath)
 
         for model_path in glob.glob(models_path + "/*.obj"):
             bpy.ops.import_scene.obj(filepath=model_path)
-            # importing wavefront files doesn't set the bpy.context.object
-            # value correctly, so we retrieve the object directly
             obj = bpy.context.view_layer.objects[os.path.splitext(
                 os.path.basename(model_path)
             )[0]]
-
-            self._init_model(obj,model_path)
+            bpy.context.view_layer.objects.active = obj
+            PhotogrammetryHelper.init_model()
 
         for model_path in glob.glob(models_path + "/*.glb"):
             bpy.ops.import_scene.gltf(filepath=model_path)
-            self._init_model(None,model_path)
+            obj = bpy.context.object
+            obj.name = os.path.splitext(os.path.basename(model_path))[0]
+            bpy.context.view_layer.objects.active = obj
+            PhotogrammetryHelper.init_model()
 
         bpy.ops.file.pack_all()
         return {'FINISHED'}
-
-
 
 #
 # Classes for setting up the various menus
